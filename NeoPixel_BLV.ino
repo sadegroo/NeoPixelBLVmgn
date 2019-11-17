@@ -2,8 +2,8 @@
 #include <Adafruit_NeoPixel.h>
 #include <Bounce2.h>
 
-#define DEBUGLEVEL1_ACTIVE
-#define DEBUGLEVEL2_ACTIVE
+//#define DEBUGLEVEL1_ACTIVE
+//#define DEBUGLEVEL2_ACTIVE
 
 static uint32_t  ConvertColor(uint8_t red, uint8_t green, uint8_t blue) {
   return ((uint32_t)red << 16) | ((uint32_t)green <<  8) | blue;
@@ -17,7 +17,7 @@ bool NeoPixelTempHotendActive= true; //NeoPixel showing the hotend temperature (
 neoPixelType NeoPixelTempHotendType= NEO_GRB + NEO_KHZ800; //Neopixel type (do not change if using NeoPixel from the BOM)
 uint16_t NeoPixelTempHotendCount= 16; //Count of Neopixel-LEDs (do not change if using Neopixel from the BOM)
 uint8_t NeoPixeTempHotendArduinoPin= 6; //Arduino pin used to control the Neopixel (do not change if using the wiring diagram from Ben Levi)
-int NeoPixelTempHotendPixelOffset= 0; //Usually LED number one of the NeoPixel is being used as the start point. Using the offset you can move the start point clockwise (positive offset) or anti-clockwise (negative offset)
+int NeoPixelTempHotendPixelOffset= 4; //Usually LED number one of the NeoPixel is being used as the start point. Using the offset you can move the start point clockwise (positive offset) or anti-clockwise (negative offset)
 int NeoPixelTempHotendTempOffset= 0; //Minimum Temperature at which the first LED lights up
 int NeoPixelTempHotendScale= 20; //Temperature steps at which the following LEDs light up
 bool NeoPixelTempHotendAnimationActive= true; //Animation when the Hotend heats up (true = activated / false = deactivated)
@@ -33,7 +33,7 @@ bool NeoPixelPrinterStatActive= true; //NeoPixel showing the printer status (tru
 neoPixelType NeoPixelPrinterStatType= NEO_GRB + NEO_KHZ800; //Neopixel type (do not change if using NeoPixel from the BOM)
 uint16_t NeoPixelPrinterStatCount= 16; //Count of NeoPixel-LEDs (do not change if using Neopixel from the BOM)
 uint8_t NeoPixePrinterStatArduinoPin= 7; //Arduino pin used to control the Neopixel (do not change if using the wiring diagram from Ben Levi)
-int NeoPixelPrinterStatPixelOffset= 0; //Usually LED number one of the NeoPixel is being used as the start point. Using the offset you can move the startpoint clockwise (positive offset) or anti-clockwise (negative offset).
+int NeoPixelPrinterStatPixelOffset= 3; //Usually LED number one of the NeoPixel is being used as the start point. Using the offset you can move the startpoint clockwise (positive offset) or anti-clockwise (negative offset).
 bool NeoPixelPrinterStatAnimationActive= true; ///Animation for print progress (true = activated / false = deactivated)
 uint8_t NeopixelTempPrinterStatBrightness= 8; //Overall brightness of the Neopixel-LEDs
 uint32_t NeoPixelPrinterStatColorIdle= ConvertColor(255,255,255); //RGB values for specified status
@@ -54,7 +54,7 @@ bool NeoPixelTempHeatbedActive= true; //NeoPixel showing the heatbed temperature
 neoPixelType NeoPixelTempHeatbedType= NEO_GRB + NEO_KHZ800; //Neopixel type (do not change if using NeoPixel from the BOM)
 uint16_t NeoPixelTempHeatbedCount= 16; //Count of NeoPixel-LEDs (do not change if using Neopixel from the BOM)
 uint8_t NeoPixeTempHeatbedArduinoPin= 8; //Arduino pin used to control the Neopixel (do not change if using the wiring diagram from Ben Levi)
-int NeoPixelTempHeatbedPixelOffset= 0; //Usually LED number one of the NeoPixel is being used as the start point. Using the offset you can move the start point clockwise (positive offset) or anti-clockwise (negative offset)
+int NeoPixelTempHeatbedPixelOffset= 7; //Usually LED number one of the NeoPixel is being used as the start point. Using the offset you can move the start point clockwise (positive offset) or anti-clockwise (negative offset)
 int NeoPixelTempHeatbedTempOffset= 0; //Minimum Temperature at which the first LED lights up
 int NeoPixelTempHeatbedScale= 10; //Temperature steps at which the following LEDs light up
 bool NeoPixelTempHeatbedAnimationActive= true; //Animation when the Heatbed heats up (true = activated / false = deactivated)
@@ -453,6 +453,8 @@ void DebugOnOff(){
   Serial.println(digitalRead(BUTTON_PIN));
   Serial.print("Debounced: ");
   Serial.println(OnOffDebouncer.read());
+  Serial.print("State: ");
+  Serial.println(OnOffState);
   millismem += 1000;
   }
 }
@@ -479,6 +481,7 @@ void loop()
     OnOffDebouncer.update();
     if (OnOffDebouncer.fell()){
     OnOffState = !OnOffState;
+    Serial.println("Triggered");
     }
     digitalWrite(LED_PIN, OnOffState);
   #endif
@@ -489,7 +492,7 @@ void loop()
   digitalWrite(LED_PIN, OnOffState);
 #endif
 
-  //DebugOnOff();
+  // DebugOnOff();
 
 
   //NeopixelRefresh?
@@ -805,6 +808,7 @@ void loop()
     }
     else{
       NeoPixelTempHotend.clear();
+      NeoPixelTempHotend.show();
     }
 
     if (NeoPixelPrinterStatActive == true && OnOffState){
@@ -812,6 +816,7 @@ void loop()
     }
     else{
        NeoPixelPrinterStat.clear();
+       NeoPixelPrinterStat.show();
     }
 
     if (NeoPixelTempHeatbedActive == true && OnOffState){
@@ -819,6 +824,7 @@ void loop()
     }
     else{
       NeoPixelTempHeatbed.clear();
+      NeoPixelTempHeatbed.show();
     }
   }
 }
