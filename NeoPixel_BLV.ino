@@ -1,7 +1,9 @@
+#include "Arduino.h"
 #include <Adafruit_NeoPixel.h>
+#include <Bounce2.h>
 
-//#define DEBUGLEVEL1_ACTIVE
-//#define DEBUGLEVEL2_ACTIVE
+#define DEBUGLEVEL1_ACTIVE
+#define DEBUGLEVEL2_ACTIVE
 
 static uint32_t  ConvertColor(uint8_t red, uint8_t green, uint8_t blue) {
   return ((uint32_t)red << 16) | ((uint32_t)green <<  8) | blue;
@@ -63,6 +65,18 @@ uint32_t NeoPixelTempHeatbedColorHeatUpDone= ConvertColor(255,0,0); //RGB values
 uint32_t NeoPixelTempHeatbedColorCoolDown= ConvertColor(0,0,255); //RGB values for specified status
 uint32_t NeoPixelTempHeatbedColorAnimation= ConvertColor(0,0,0); //RGB values for specified status
 
+//On-Off button
+//Uncomment ONE of these options to use a on-off button
+#define ON_OFF_BUTTON_MOMENTARY
+//#define ON_OFF_BUTTON_LATCHING
+
+#if defined(ON_OFF_BUTTON_MOMENTARY) || defined(ON_OFF_BUTTON_LATCHING)
+     #define BUTTON_PIN 5 //ON-OFF button
+   #define LED_PIN 13   //Built-in LED for debounce check
+     bool OnOffState = true;  //define initial state here
+     Bounce OnOffDebouncer = Bounce();
+#endif
+
 // ********** User-Config End **********
 // *************************************
 
@@ -84,7 +98,7 @@ class NeoPatterns : public Adafruit_NeoPixel
 {
     public:
 
-    // Member Variables:  
+    // Member Variables:
 
     // Constructor - calls base-class constructor to initialize strip
     NeoPatterns(uint16_t pixels, uint8_t pin, uint8_t type, void (*)())
@@ -145,13 +159,13 @@ static int ConvertPosition2PixelIndex(int PixelCount, int PixelOffset, int Posit
 void AnalyzeSerialMessage() {
   Printer.UpdatePending = false;
   if (JsonParseRoot(SerialMessage,"status",0) != ""){
-	  Printer.Status = JsonParseRoot(SerialMessage,"status",0).charAt(0);
-	  Printer.UpdatePending = true;
-	}
+    Printer.Status = JsonParseRoot(SerialMessage,"status",0).charAt(0);
+    Printer.UpdatePending = true;
+  }
   if (JsonParseRoot(SerialMessage,"heaters",1) != ""){
-	  Printer.ActTempHeatbed = JsonParseRoot(SerialMessage,"heaters",1).toFloat();
-	  Printer.UpdatePending = true;
-	}
+    Printer.ActTempHeatbed = JsonParseRoot(SerialMessage,"heaters",1).toFloat();
+    Printer.UpdatePending = true;
+  }
   if (JsonParseRoot(SerialMessage,"heaters",2) != ""){
     Printer.ActTempHotend = JsonParseRoot(SerialMessage,"heaters",2).toFloat();
     Printer.UpdatePending = true;
@@ -181,17 +195,17 @@ void AnalyzeSerialMessage() {
     Printer.UpdatePending = true;
   }
   if (JsonParseRoot(SerialMessage,"fraction_printed",0) != ""){
-	  Printer.FractionPrinted = JsonParseRoot(SerialMessage,"fraction_printed",0).toFloat();
-	  Printer.UpdatePending = true;
-	}
+    Printer.FractionPrinted = JsonParseRoot(SerialMessage,"fraction_printed",0).toFloat();
+    Printer.UpdatePending = true;
+  }
   #if (defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)) && defined(DEBUGLEVEL2_ACTIVE)
-  	if (Printer.UpdatePending == true){
- 		  Serial.println("StatusUpdate: Status= "+String(Printer.Status)+" / ActualTHb= "+Printer.ActTempHeatbed+" / ActualTHe= "+Printer.ActTempHotend+" / ActiveTHb= "+Printer.ActiveTempHeatbed+" / ActiveTHe= "+Printer.ActiveTempHotend+" / StandbyTHb= "+Printer.StandbyTempHeatbed+" / StandbyTHe= "+Printer.StandbyTempHotend+" / StatusHb= "+Printer.HeaterStatusHeatbed+" / StatusHe= "+Printer.HeaterStatusHotend+" / PrintProgress= "+Printer.FractionPrinted);
-  	}
-  	else{
-//  		  Serial.println("Error: JsonObjectValue");
+    if (Printer.UpdatePending == true){
+      Serial.println("StatusUpdate: Status= "+String(Printer.Status)+" / ActualTHb= "+Printer.ActTempHeatbed+" / ActualTHe= "+Printer.ActTempHotend+" / ActiveTHb= "+Printer.ActiveTempHeatbed+" / ActiveTHe= "+Printer.ActiveTempHotend+" / StandbyTHb= "+Printer.StandbyTempHeatbed+" / StandbyTHe= "+Printer.StandbyTempHotend+" / StatusHb= "+Printer.HeaterStatusHeatbed+" / StatusHe= "+Printer.HeaterStatusHotend+" / PrintProgress= "+Printer.FractionPrinted);
     }
-  #endif 
+    else{
+//        Serial.println("Error: JsonObjectValue");
+    }
+  #endif
 }
 
 
@@ -226,7 +240,7 @@ String JsonParseRoot(String JsonMessage, String JsonRootObject,int JsonObjectInd
               return JsonValue;
             }
             else{
-            //SingleValue expected, but MultiValue found 
+            //SingleValue expected, but MultiValue found
               return "";
             }
           }
@@ -278,7 +292,7 @@ String JsonParseRoot(String JsonMessage, String JsonRootObject,int JsonObjectInd
       }
       else{
         //No EndPoint , or } for SingleValue found
-        return "";          
+        return "";
       }
     }
   }
@@ -288,28 +302,28 @@ void GetSerialMessage(){
   unsigned long timer = millis();
   bool BeginMessage=false;
   SerialMessageComplete=false;
-  SerialMessage=""; 
+  SerialMessage="";
   while(SerialMessageComplete==false && ((millis() - timer) <= SerialTimeout))
-  {    
+  {
     //Arduino-Mega only
     #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
-      while(SerialMessageComplete==false && Serial2.available() > 0) 
-    #endif 
-    
+      while(SerialMessageComplete==false && Serial2.available() > 0)
+    #endif
+
     //Arduino-Pro only
     #if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega168__)
-      while(SerialMessageComplete==false && Serial.available() > 0) 
-    #endif 
+      while(SerialMessageComplete==false && Serial.available() > 0)
+    #endif
     {
       //Arduino-Mega only
       #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
         char inChar = Serial2.read();
-      #endif 
-      
+      #endif
+
       //Arduino-Pro only
       #if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega168__)
         char inChar = Serial.read();
-      #endif 
+      #endif
 
       if(BeginMessage==false){
         if(inChar=='{')
@@ -322,11 +336,11 @@ void GetSerialMessage(){
         if(inChar=='}'){
           SerialMessage += inChar;
           SerialMessageComplete=true;
-          
+
           //Arduino-Mega only
           #if (defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)) && defined(DEBUGLEVEL2_ACTIVE)
             Serial.println(SerialMessage);
-          #endif 
+          #endif
 
           AnalyzeSerialMessage();
         }
@@ -335,15 +349,15 @@ void GetSerialMessage(){
         }
       }
     }
-  }  
+  }
 }
 
 // Initialize everything and prepare to start
 void setup()
-{   
+{
   //Arduino-Mega only
   #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
-    Serial.begin(38400);  
+    Serial.begin(38400);
     while(!Serial)
     {;}
     Serial2.begin(57600);
@@ -351,15 +365,24 @@ void setup()
     {;}
     #if (defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)) && defined(DEBUGLEVEL1_ACTIVE)
       Serial.println("Start");
-    #endif 
-  #endif 
-  
+    #endif
+  #endif
+
   //Arduino-Pro only
   #if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega168__)
     Serial.begin(57600);
     while(!Serial)
     {;}
-  #endif 
+  #endif
+
+  #if defined(ON_OFF_BUTTON_MOMENTARY) || defined(ON_OFF_BUTTON_LATCHING)
+    OnOffDebouncer.attach(BUTTON_PIN,INPUT_PULLUP); // Attach the debouncer to a pin with INPUT_PULLUP mode
+    OnOffDebouncer.interval(40); // Use a debounce interval of 40 milliseconds
+    pinMode(LED_PIN,OUTPUT); // Setup the LED
+ #endif
+
+
+
 
   //Default start values for animations
   NeoPixelTempHotendAnimation.Position = 0;
@@ -367,13 +390,13 @@ void setup()
   NeoPixelTempHotendAnimation.RangeBegin = 0;
   NeoPixelTempHotendAnimation.RangeEnd = 0;
   NeoPixelTempHotendAnimation.Running = false;
-  
+
   NeoPixelPrinterStatAnimation.Position = 0;
   NeoPixelPrinterStatAnimation.Position_Memory = 0;
   NeoPixelPrinterStatAnimation.RangeBegin = 0;
   NeoPixelPrinterStatAnimation.RangeEnd = 0;
   NeoPixelPrinterStatAnimation.Running = false;
-  
+
   NeoPixelTempHeatbedAnimation.Position = 0;
   NeoPixelTempHeatbedAnimation.Position_Memory = 0;
   NeoPixelTempHeatbedAnimation.RangeBegin = 0;
@@ -402,29 +425,37 @@ void setup()
     DebugPrinter.HeaterStatusHeatbed = 0.0;
     DebugPrinter.HeaterStatusHotend = 0.0;
     DebugPrinter.FractionPrinted = 0.0;
-  #endif 
+  #endif
 
   // Initialize Neopixels
   if (NeoPixelTempHotendActive == true){
     NeoPixelTempHotend.begin();
     NeoPixelTempHotend.setBrightness(NeopixelTempHotendBrightness);
     NeoPixelTempHotend.fill(ConvertColor(0,0,0));
-    NeoPixelTempHotend.show();
   }
   if (NeoPixelPrinterStatActive == true){
     NeoPixelPrinterStat.begin();
     NeoPixelPrinterStat.setBrightness(NeopixelTempPrinterStatBrightness);
     NeoPixelPrinterStat.fill(ConvertColor(0,0,0));
-    NeoPixelPrinterStat.show();
   }
   if (NeoPixelTempHeatbedActive == true){
     NeoPixelTempHeatbed.begin();
     NeoPixelTempHeatbed.setBrightness(NeopixelTempHeatbedBrightness);
     NeoPixelTempHeatbed.fill(ConvertColor(0,0,0));
-    NeoPixelTempHeatbed.show();
   }
 }
 
+void DebugOnOff(){
+  static unsigned long millismem = 0;
+
+  if (millis() > millismem){
+  Serial.print("button pin: ");
+  Serial.println(digitalRead(BUTTON_PIN));
+  Serial.print("Debounced: ");
+  Serial.println(OnOffDebouncer.read());
+  millismem += 1000;
+  }
+}
 
 // Main loop
 void loop()
@@ -434,15 +465,32 @@ void loop()
   #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
     if (Serial2.available() > 0){
       GetSerialMessage();
-    }  
-  #endif 
-  
+    }
+  #endif
+
   //Arduino-Pro only
   #if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega168__)
     if (Serial.available() > 0){
       GetSerialMessage();
-    }  
-  #endif 
+    }
+  #endif
+
+  #ifdef ON_OFF_BUTTON_MOMENTARY
+    OnOffDebouncer.update();
+    if (OnOffDebouncer.fell()){
+    OnOffState = !OnOffState;
+    }
+    digitalWrite(LED_PIN, OnOffState);
+  #endif
+
+#ifdef ON_OFF_BUTTON_LATCHING
+  OnOffDebouncer.update();
+  OnOffState = !OnOffDebouncer.read();
+  digitalWrite(LED_PIN, OnOffState);
+#endif
+
+  //DebugOnOff();
+
 
   //NeopixelRefresh?
   if ((millis() - NeoPixelTimerRefresh) >= NeopixelRefreshSpeed){
@@ -495,15 +543,15 @@ void loop()
         DebugPrinter.StandbyTempHeatbed = Printer.StandbyTempHeatbed;
         DebugPrinter.StandbyTempHotend = Printer.StandbyTempHotend;
         DebugPrinter.FractionPrinted = Printer.FractionPrinted;
-      #endif 
-      
+      #endif
+
       //Update Neopixel Hotend
       if (NeoPixelTempHotendActive == true){
         //Initialize AnimationRange
         NeoPixelTempHotendAnimation.RangeBegin = 0;
         NeoPixelTempHotendAnimation.RangeEnd = 0;
-  
-        //NeoPixel: Bed-Temperature   
+
+        //NeoPixel: Bed-Temperature
         SetTempHotend=0;
         if (Printer.HeaterStatusHotend == 2)
         {
@@ -535,15 +583,15 @@ void loop()
           }
         }
       }
-        
+
       //Update Neopixel PrinterStatus
       if (NeoPixelPrinterStatActive == true){
         //Initialize AnimationRange Hotend
         NeoPixelPrinterStatAnimation.RangeBegin = 0;
         NeoPixelPrinterStatAnimation.RangeEnd = 0;
-  
+
         //NeoPixel: Printer-Status & Print-Progress
-        if(Printer.Status == 'P'){ 
+        if(Printer.Status == 'P'){
           //Display Print-Progress
           for (int NeoPixelPosition = 1; NeoPixelPosition <= NeoPixelPrinterStatCount; NeoPixelPosition++)
           {
@@ -607,15 +655,15 @@ void loop()
               break;
           }
         }
-      }    
-  
+      }
+
       //Update Neopixel Heatbed
       if (NeoPixelTempHeatbedActive == true){
         //Initialize AnimationRange
         NeoPixelTempHeatbedAnimation.RangeBegin = 0;
         NeoPixelTempHeatbedAnimation.RangeEnd = 0;
-  
-        //NeoPixel: Bed-Temperature   
+
+        //NeoPixel: Bed-Temperature
         SetTempHeatbed=0;
         if (Printer.HeaterStatusHeatbed == 2)
         {
@@ -647,7 +695,7 @@ void loop()
           }
         }
       }
-    }  
+    }
 
     //Animation Hotend
     if (NeoPixelTempHotendAnimationActive == true){
@@ -716,7 +764,7 @@ void loop()
         }
       }
     }
-            
+
     //Animation Heatbed
     if (NeoPixelTempHeatbedAnimationActive == true){
       //AnimationRange exists?
@@ -752,14 +800,27 @@ void loop()
     }
 
     //Neopixel refresh
-    if (NeoPixelTempHotendActive == true){
+    if (NeoPixelTempHotendActive == true && OnOffState){
       NeoPixelTempHotend.show();
-    }  
-    if (NeoPixelPrinterStatActive == true){
-      NeoPixelPrinterStat.show();   
-    }   
-    if (NeoPixelTempHeatbedActive == true){
+    }
+    else{
+      NeoPixelTempHotend.clear();
+    }
+
+    if (NeoPixelPrinterStatActive == true && OnOffState){
+      NeoPixelPrinterStat.show();
+    }
+    else{
+       NeoPixelPrinterStat.clear();
+    }
+
+    if (NeoPixelTempHeatbedActive == true && OnOffState){
       NeoPixelTempHeatbed.show();
-    }  
+    }
+    else{
+      NeoPixelTempHeatbed.clear();
+    }
   }
 }
+
+
